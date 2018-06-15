@@ -3,6 +3,8 @@ import pandas as pd
 import requests
 import re
 import time
+import datetime
+
 try:
     from io import StringIO
 except ImportError:
@@ -10,21 +12,14 @@ except ImportError:
 
 class Fetcher:
     api_url = "https://query1.finance.yahoo.com/v7/finance/download/%s?period1=%s&period2=%s&interval=%s&events=%s&crumb=%s"
-    def __init__(self, ticker, start, end=None, interval="1d"):
-        """Initializes class variables and formats api_url string"""
-        self.ticker = ticker.upper()
-        self.interval = interval
-        self.cookie, self.crumb = self.init()
-        self.start = int(time.mktime(dt.datetime(start[0],start[1],start[2]).timetuple()))
+    def __init__(self):
 
-        if end is not None:
-            self.end = int(time.mktime(dt.datetime(end[0],end[1],end[2]).timetuple()))
-        else:
-            self.end = int(time.time())
+        self.cookie = None
+        self.crumb = None
 
-    def init(self):
+    def getCookie(self, ticker):
         """Returns a tuple pair of cookie and crumb used in the request"""
-        url = 'https://finance.yahoo.com/quote/%s/history' % (self.ticker)
+        url = 'https://finance.yahoo.com/quote/%s/history' % (ticker)
         r = requests.get(url)
         txt = r.content
         cookie = r.cookies['B']
@@ -35,35 +30,60 @@ class Fetcher:
             if m is not None:
                 crumb = m.groupdict()['crumb']
                 crumb = crumb.replace(u'\\u002F', '/')
+
         return cookie, crumb  # return a tuple of crumb and cookie
 
-    def getData(self, events):
+    def getData(self, events, ticker, start=None, end=None, interval='1d'):
+
+        endTime = None
+        startTime = None
+
+        #Ticker needs to be uppercase
+        ticker = ticker.upper()
+
+        #Make sure we have a cookie and crumb
+        if(self.cookie is None and self.crumb is None):
+            self.cookie, self.crumb = self.getCookie(ticker)
+
+        if(start is None):
+            startTime = 0
+        else:
+            startTime = int(time.mktime(dt.datetime(start[0],start[1],start[2]).timetuple()))
+
+        if end is not None:
+            endTime = int(time.mktime(dt.datetime(end[0],end[1],end[2]).timetuple()))
+        else:
+            endTime = int(time.time())
+
         """Returns a list of historical data from Yahoo Finance"""
-        if self.interval not in ["1d", "1wk", "1mo"]:
+        if interval not in ["1d", "1wk", "1mo"]:
             raise ValueError("Incorrect interval: valid intervals are 1d, 1wk, 1mo")
 
-        url = self.api_url % (self.ticker, self.start, self.end, self.interval, events, self.crumb)
+        url = self.api_url % (ticker, startTime, endTime, interval, events, self.crumb)
+        print("Debug: url")
+        print(url)
 
         data = requests.get(url, cookies={'B':self.cookie})
         content = StringIO(data.content.decode("utf-8"))
         return pd.read_csv(content, sep=',')
 
-    def getHistorical(self, events='history'):
+    def getHistorical(self, ticker, start=None, end=None, interval='1d'):
         """Returns a list of historical price data from Yahoo Finance"""
-        return self.getData('history')
+        return self.getData('history', ticker, start, end, interval)
 
-    def getDividends(self):
+    def getDividends(self, ticker, start=None, end=None, interval='1d'):
         """Returns a list of historical dividends data from Yahoo Finance"""
-        return self.getData('div')
+        return self.getData('div', ticker, start, end, interval)
 
-    def getSplits(self):
+    def getSplits(self, ticker, start=None, end=None, interval='1d'):
         """Returns a list of historical splits data from Yahoo Finance"""
-        return self.getData('split')
+        return self.getData('split', ticker, start, end , interval)
 
-    def getDatePrice(self):
+    def getDatePrice(self, ticker, start=None, end=None, interval='1d'):
         """Returns a DataFrame for Date and Price from getHistorical()"""
-        return self.getHistorical().ix[:,[0,4]]
+        return self.getHistorical(ticker, start, end, interval).ix[:,[0,4]]
 
-    def getDateVolume(self):
+    def getDateVolume(self, ticker, start=None, end=None, interval='1d'):
         """Returns a DataFrame for Date and Volume from getHistorical()"""
-        return self.getHistorical().ix[:,[0,6]]
+        return self.getHistorical(ticker, start, end, interval).ix[:,[0,6]]
+
