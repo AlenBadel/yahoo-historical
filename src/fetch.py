@@ -69,6 +69,7 @@ class Fetcher:
         content = StringIO(data.content.decode("utf-8"))
         return pd.read_csv(content, sep=',')
 
+
     def getHistorical(self, ticker, start=None, end=None, interval='1d'):
         """Returns a list of historical price data from Yahoo Finance"""
         return self.getData('history', ticker, start, end, interval)
