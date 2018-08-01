@@ -61,9 +61,11 @@ class Fetcher:
         if interval not in ["1d", "1wk", "1mo"]:
             raise ValueError("Incorrect interval: valid intervals are 1d, 1wk, 1mo")
 
-        url = self.api_url % (ticker, startTime, endTime, interval, events, self.crumb)
-        #print("Debug: url")
-        #print(url)
+        try:
+            url = self.api_url % (ticker, startTime, endTime, interval, events, self.crumb)
+        except Exception as e:
+            print("Fetch: Cookie expired getting new")
+            self.cookie, self.crumb = self.getCookie(ticker)
 
         data = requests.get(url, cookies={'B':self.cookie})
         content = StringIO(data.content.decode("utf-8"))
